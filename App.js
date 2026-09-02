@@ -44,8 +44,14 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
+const hasFirebaseValues = Object.values(firebaseConfig).every(
+  (value) => typeof value === 'string' && value.trim().length > 0 && !value.startsWith('replace-with-'),
+);
+const isFirebaseConfigured = hasFirebaseValues;
+const app = isFirebaseConfigured
+  ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0])
+  : null;
+const db = app ? getFirestore(app) : null;
 const PROFILE_KEY = 'civicalert-mobile-profile';
 const REPORTER_ID_KEY = 'civicalert-mobile-reporter-id';
 const REPORT_STATUS_KEY = 'civicalert-mobile-report-statuses';
@@ -139,7 +145,7 @@ export default function App() {
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [photoViewerItems, setPhotoViewerItems] = useState([]);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
-  const [donationDialogVisible, setDonationDialogVisible] = useState(true);
+  const [donationDialogVisible, setDonationDialogVisible] = useState(false);
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validatePassword = (password) => password.length >= 6;
@@ -161,6 +167,10 @@ export default function App() {
 
   useEffect(() => {
     const loadCategories = async () => {
+      if (!db) {
+        Alert.alert('App setup required', 'Firebase is not configured for this production build.');
+        return;
+      }
       try {
         const snapshot = await getDocs(query(collection(db, 'categories'), orderBy('name')));
         const result = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
@@ -205,6 +215,7 @@ export default function App() {
             setSosExpanded(!hasValidContacts);
           }
 
+          if (!db) return;
           const firestoreProfile = await getDoc(doc(db, 'userProfiles', parsed.email));
           if (firestoreProfile.exists()) {
             const firestoreData = firestoreProfile.data();
@@ -237,6 +248,7 @@ export default function App() {
 
   useEffect(() => {
     if (!profile?.email || !profile?.isEmailVerified) return;
+    if (!db) return;
 
     let active = true;
     let pollTimer;
@@ -2317,6 +2329,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+    minWidth: 140,
+    flexShrink: 0,
   },
   newReportButtonText: {
     color: '#ffffff',
@@ -2693,54 +2707,6 @@ const styles = StyleSheet.create({
   loadProfileButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '800',
-  },
-  reportsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 18,
-    gap: 10,
-  },
-  reportsHeaderLeft: {
-    flex: 1,
-    marginRight: 12,
-    minWidth: 0,
-  },
-  sessionLabel: {
-    color: '#2378bd',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  myReportsTitle: {
-    color: '#073b82',
-    fontSize: 36,
-    fontWeight: '900',
-    lineHeight: 40,
-    letterSpacing: -1,
-    flexShrink: 1,
-  },
-  newReportButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#2378bd',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginTop: 6,
-    shadowColor: '#2378bd',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    flexShrink: 0,
-  },
-  newReportButtonText: {
-    color: '#2378bd',
-    fontSize: 13,
     fontWeight: '800',
   },
   reportCard: {
